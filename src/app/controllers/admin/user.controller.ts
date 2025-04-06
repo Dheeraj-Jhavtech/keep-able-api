@@ -183,4 +183,4 @@ async function deleteUserById(req: Request, res: Response): Promise<Response> {
     }
 }
 
-export default { getAllUsers, getUserById, createUser: createAdminUser, updateUserById, deleteUserById };
+export default { getAllUsers, getUserById, createAdminUser, updateUserById, deleteUserById };
