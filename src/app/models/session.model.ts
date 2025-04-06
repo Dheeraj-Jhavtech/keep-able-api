@@ -22,4 +22,7 @@ export class Session {
 
     @prop({ required: true })
     public expiresAt!: Date;
+
+    @prop({ required: true })
+    public startedAt!: Date;
 }
