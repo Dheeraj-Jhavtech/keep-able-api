@@ -5,7 +5,6 @@
 
 import { Ref, pre, prop } from '@typegoose/typegoose';
 import mongoose from 'mongoose';
-import { Session } from './session.model';
 
 enum Role {
     ADMIN = 'admin',
@@ -39,7 +38,4 @@ export class User {
 
     @prop({ enum: Role, default: Role.USER })
     public role?: Role;
-
-    @prop({ ref: () => Session, default: [] })
-    public sessions?: Ref<Session>[];
 }
