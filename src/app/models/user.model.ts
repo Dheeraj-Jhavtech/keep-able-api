@@ -29,14 +29,14 @@ export class User {
     @prop({ unique: true })
     public email?: string;
 
+    @prop({ sparse: true })
+    public deviceId?: string;
+
     @prop({ required: true, default: false })
     public isGuest!: boolean;
 
     @prop()
     public avatar?: string;
-
-    @prop()
-    public bio?: string;
 
     @prop({ enum: Role, default: Role.USER })
     public role?: Role;

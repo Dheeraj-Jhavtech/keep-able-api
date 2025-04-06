@@ -16,8 +16,9 @@ import isAdmin from './app/middlewares/is-admin.middleware';
 import { corsConfig, limitterConfig } from './config/app';
 import database from './config/database';
 import userRoute from './routes/admin/user.route';
-import healthCheckRoute from './routes/health-check.route';
 import mainRoute from './routes/main.route';
+import healthCheckRoute from './routes/health-check.route';
+import authRoute from './routes/auth.route';
 
 /**
  * @description Init express application
@@ -39,13 +40,10 @@ const init = function (): Application {
     app.use(morgan('dev'));
 
     // * Main Route
-    app.use('/api', mainRoute);
-
-    // * Health Check Route
-    app.use('/api/health-check', healthCheckRoute);
-
-    // * Admin Route
+    app.use('/api/v1/auth', authRoute);
     app.use('/api/admin/users', auth, isAdmin, userRoute);
+    app.use('/api', mainRoute);
+    app.use('/health-check', healthCheckRoute);
 
     // * 404 Not Found
     app.use((_, res) => resFailed(res, 404, 'Path Not Found. Please go to /api'));
