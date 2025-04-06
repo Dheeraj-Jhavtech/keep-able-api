@@ -21,7 +21,7 @@ function healthCheck(_: Request, res: Response): Response {
     };
 
     try {
-        const x = 1;
+        const x1 = 1;
         return resSuccess(res, 200, 'Health check success', health);
     } catch (error: any) {
         logger.error(healthCheck.name, error.message);
