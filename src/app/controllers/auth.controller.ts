@@ -9,7 +9,7 @@ import mongoose from 'mongoose';
 import { generateAccessToken } from '../../jwt/helpers/access-token.helper';
 import { generateRefreshToken, verifyRefreshToken } from '../../jwt/helpers/refresh-token.helper';
 import { generateSessionToken, getSessionId, verifySessionToken } from '../../jwt/helpers/session-token.helper';
-import { compare, hash } from '../helpers';
+// Authentication helpers will be replaced with OTP and Azure AD SSO implementations
 import { resFailed, resSuccess } from '../helpers';
 import { User } from '../models/user.model';
 import SessionService from '../services/session.service';
@@ -24,7 +24,7 @@ import { logger } from '../../logger';
  */
 async function register(req: Request, res: Response): Promise<Response> {
     try {
-        const { name, phoneNumber, email, password } = req.body;
+        const { name, phoneNumber, email } = req.body;
         const user: User | null = await UserService.getOneUser({ email });
 
         if (user) {
@@ -32,13 +32,12 @@ async function register(req: Request, res: Response): Promise<Response> {
             return resFailed(res, 400, message);
         }
 
-        const hashPassword = await hash(password);
-        const data = { name, phoneNumber, email, password: hashPassword };
+        const data = { name, phoneNumber, email };
         const newUser: User = await UserService.createUser(data);
-        const getNewUserWithoutPassword: User | null = await UserService.getOneUser({ email: newUser.email });
+        // User will need to complete authentication through OTP or Azure AD SSO
 
         const message = 'Register success';
-        return resSuccess(res, 201, message, { user: getNewUserWithoutPassword });
+        return resSuccess(res, 201, message, { user: newUser });
     } catch (error: any) {
         logger.error(register.name, error.message);
         return resFailed(res, 500, error.message);
@@ -53,21 +52,17 @@ async function register(req: Request, res: Response): Promise<Response> {
  */
 async function login(req: Request, res: Response): Promise<Response> {
     try {
-        const { loginType, password } = req.body;
+        // This login method will be replaced with OTP and Azure AD SSO authentication
+        const { loginType } = req.body;
         const filter: mongoose.FilterQuery<User> = { $or: [{ email: loginType }, { phoneNumber: loginType }] };
-        const user: User | null = await UserService.getOneUser(filter, {}, false);
+        const user: User | null = await UserService.getOneUser(filter);
 
         if (!user) {
             const message = 'User not found';
             return resFailed(res, 404, message);
         }
 
-        const isPasswordMatch = await compare(password, user.password);
-
-        if (!isPasswordMatch) {
-            const message = 'Password is incorrect';
-            return resFailed(res, 400, message);
-        }
+        // TODO: Implement OTP verification or Azure AD SSO authentication here
 
         const JWTPayload = { id: user._id, email: user.email, role: user.role };
         const accessToken = generateAccessToken(JWTPayload, '5h');

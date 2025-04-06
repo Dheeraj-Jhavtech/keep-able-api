@@ -66,16 +66,23 @@ async function getUserById(req: Request, res: Response): Promise<Response> {
  */
 async function createUser(req: Request, res: Response): Promise<Response> {
     try {
-        const { name, phoneNumber, email, password } = req.body;
-        const existsUser = await UserService.getOneUser({ $or: [{ phoneNumber }, { email }] });
+        const { name, phoneNumber, email, password, isGuest = false, role = 'user' } = req.body;
 
-        if (existsUser) {
-            const message: string = 'Username or email already exists';
-            return resFailed(res, 400, message);
+        // Check for duplicate email/phone only if they are provided
+        const query = [];
+        if (phoneNumber) query.push({ phoneNumber });
+        if (email) query.push({ email });
+
+        if (query.length > 0) {
+            const existsUser = await UserService.getOneUser({ $or: query });
+            if (existsUser) {
+                const message: string = 'Phone number or email already exists';
+                return resFailed(res, 400, message);
+            }
         }
 
         const passwordHash = await hash(password);
-        const data = { name, phoneNumber, email, password: passwordHash };
+        const data = { name, phoneNumber, email, password: passwordHash, isGuest, role };
         const user: User = await UserService.createUser(data);
 
         const message: string = 'Success create new user';
@@ -102,8 +109,23 @@ async function updateUserById(req: Request, res: Response): Promise<Response> {
             return resFailed(res, 404, message);
         }
 
-        const { name, phoneNumber, email } = req.body;
-        const data = { name, phoneNumber, email };
+        const { name, phoneNumber, email, isGuest, role } = req.body;
+        const data = { name, phoneNumber, email, isGuest, role };
+
+        // Check for duplicate email/phone if they are being updated
+        if (phoneNumber || email) {
+            const query = [];
+            if (phoneNumber) query.push({ phoneNumber, _id: { $ne: id } });
+            if (email) query.push({ email, _id: { $ne: id } });
+
+            if (query.length > 0) {
+                const existsUser = await UserService.getOneUser({ $or: query });
+                if (existsUser) {
+                    const message: string = 'Phone number or email already exists';
+                    return resFailed(res, 400, message);
+                }
+            }
+        }
         const user: User | null = await UserService.updateOneUserById(id, data);
 
         const message: string = 'Success update user by id';

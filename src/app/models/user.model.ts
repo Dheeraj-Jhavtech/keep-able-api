@@ -7,8 +7,10 @@ import { Ref, pre, prop } from '@typegoose/typegoose';
 import mongoose from 'mongoose';
 
 enum Role {
+    SUPER_ADMIN = 'super_admin',
     ADMIN = 'admin',
     USER = 'user',
+    GUEST = 'guest',
 }
 
 @pre<User>('save', function () {
@@ -21,14 +23,14 @@ export class User {
     @prop({ required: true })
     public name!: string;
 
-    @prop({ required: true, unique: true })
-    public phoneNumber!: string;
+    @prop({ unique: true })
+    public phoneNumber?: string;
 
-    @prop({ required: true, unique: true })
-    public email!: string;
+    @prop({ unique: true })
+    public email?: string;
 
-    @prop({ required: true })
-    public password!: string;
+    @prop({ required: true, default: false })
+    public isGuest!: boolean;
 
     @prop()
     public avatar?: string;
