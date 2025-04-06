@@ -23,13 +23,13 @@ export class User {
     @prop({ required: true })
     public name!: string;
 
-    @prop({ unique: true })
+    @prop({ index: { unique: true, sparse: true, partialFilterExpression: { role: Role.USER } } })
     public phoneNumber?: string;
 
-    @prop({ unique: true })
+    @prop({ index: { unique: true, sparse: true, partialFilterExpression: { role: { $in: [Role.ADMIN, Role.SUPER_ADMIN] } } } })
     public email?: string;
 
-    @prop({ sparse: true })
+    @prop({ index: { unique: true, sparse: true, partialFilterExpression: { role: Role.GUEST } } })
     public deviceId?: string;
 
     @prop({ required: true, default: false })

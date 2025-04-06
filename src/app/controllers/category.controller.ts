@@ -21,9 +21,9 @@ async function createCategory(req: Request, res: Response): Promise<Response> {
         return resSuccess(res, 201, 'Category created successfully', category);
     } catch (error: any) {
         if (error.code === 11000) {
-            return resFailed(res, 400, 'Category name already exists');
+            return resFailed(res, 400, { code: 'DUPLICATE_CATEGORY', message: 'Category name already exists' });
         }
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -35,7 +35,7 @@ async function getCategories(_req: Request, res: Response): Promise<Response> {
         const categories = await CategoryModel.find().sort({ name: 1 });
         return resSuccess(res, 200, 'Categories retrieved successfully', categories);
     } catch (error: any) {
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -46,11 +46,11 @@ async function getCategoryById(req: Request, res: Response): Promise<Response> {
     try {
         const category = await CategoryModel.findById(req.params.id);
         if (!category) {
-            return resFailed(res, 404, 'Category not found');
+            return resFailed(res, 404, { code: 'CATEGORY_NOT_FOUND', message: 'Category not found' });
         }
         return resSuccess(res, 200, 'Category retrieved successfully', category);
     } catch (error: any) {
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -63,15 +63,15 @@ async function updateCategory(req: Request, res: Response): Promise<Response> {
         const category = await CategoryModel.findByIdAndUpdate(req.params.id, { name, description }, { new: true, runValidators: true });
 
         if (!category) {
-            return resFailed(res, 404, 'Category not found');
+            return resFailed(res, 404, { code: 'CATEGORY_NOT_FOUND', message: 'Category not found' });
         }
 
         return resSuccess(res, 200, 'Category updated successfully', category);
     } catch (error: any) {
         if (error.code === 11000) {
-            return resFailed(res, 400, 'Category name already exists');
+            return resFailed(res, 400, { code: 'DUPLICATE_CATEGORY', message: 'Category name already exists' });
         }
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -86,7 +86,7 @@ async function deleteCategory(req: Request, res: Response): Promise<Response> {
         });
 
         if (contentCount > 0) {
-            return resFailed(res, 400, 'Category Deletion unsuccessful', {
+            return resFailed(res, 400, {
                 code: 'CATEGORY_IN_USE',
                 message: 'Cannot delete category with associated content',
             });
@@ -94,12 +94,12 @@ async function deleteCategory(req: Request, res: Response): Promise<Response> {
 
         const category = await CategoryModel.findByIdAndDelete(req.params.id);
         if (!category) {
-            return resFailed(res, 404, 'Category not found');
+            return resFailed(res, 404, { code: 'CATEGORY_NOT_FOUND', message: 'Category not found' });
         }
 
         return resSuccess(res, 200, 'Category deleted successfully');
     } catch (error: any) {
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 

@@ -16,9 +16,15 @@ const validateReq = (schema: AnyZodObject) => async (req: Request, res: Response
     } catch (error: any) {
         if (error instanceof ZodError) {
             // return resFailed(res, 400, `${JSON.stringify(error.issues[0].path)} - ${error.issues[0].message}`);
-            return resFailed(res, 400, error.issues[0].message);
+            return resFailed(res, 400, {
+                code: 'INVALID_PARAMS',
+                message: error.issues[0].message,
+            });
         }
-        return resFailed(res, 500, error.message || 'Could not validate req');
+        return resFailed(res, 500, {
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Internal server error - Could Not validate the request',
+        });
     }
 };
 

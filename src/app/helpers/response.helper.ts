@@ -26,6 +26,9 @@ export function resSuccess(res: Response, status: number, message: string, data?
  * @param {object | any} error - Error response
  * @returns {Response} - Express response object
  */
-export function resFailed(res: Response, status: number, message: string, error?: object | any): Response {
-    return res.status(status).type('application/json').json({ success: false, message, error });
+export function resFailed(res: Response, status: number, error?: { code: string; message: string }): Response {
+    return res
+        .status(status)
+        .type('application/json')
+        .json({ success: false, data: null, error, message: error?.message || 'Failed' });
 }

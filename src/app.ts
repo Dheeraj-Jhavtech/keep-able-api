@@ -46,7 +46,12 @@ const init = function (): Application {
     app.use('/health-check', healthCheckRoute);
 
     // * 404 Not Found
-    app.use((_, res) => resFailed(res, 404, 'Path Not Found. Please go to /api'));
+    app.use((_, res) =>
+        resFailed(res, 404, {
+            message: 'Not Found',
+            code: 'NOT_FOUND',
+        }),
+    );
 
     // * Return express app
     return app;

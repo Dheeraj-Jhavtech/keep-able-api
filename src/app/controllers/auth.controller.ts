@@ -46,7 +46,7 @@ async function guestLogin(req: Request, res: Response): Promise<Response> {
         });
     } catch (error: any) {
         logger.error('guestLogin', error.message);
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -86,7 +86,7 @@ async function sendOTP(req: Request, res: Response): Promise<Response> {
         return resSuccess(res, 200, 'OTP sent successfully');
     } catch (error: any) {
         logger.error('sendOTP', error.message);
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -100,7 +100,7 @@ async function verifyOTP(req: Request, res: Response): Promise<Response> {
         const user = await UserModel.findOne({ phoneNumber: phone });
 
         if (!user) {
-            return resFailed(res, 404, 'User not found');
+            return resFailed(res, 404, { code: 'USER_NOT_FOUND', message: 'User not found' });
         }
 
         const otpRecord = await OTPModel.findOne({
@@ -110,17 +110,19 @@ async function verifyOTP(req: Request, res: Response): Promise<Response> {
         }).sort({ createdAt: -1 });
 
         if (!otpRecord) {
-            return resFailed(res, 400, 'OTP expired or not found');
+            return resFailed(res, 400, { code: 'OTP_EXPIRED', message: 'OTP expired or not found' });
         }
 
         if (otpRecord.attempts >= 3) {
-            return resFailed(res, 400, 'Maximum attempts exceeded');
+            return resFailed(res, 400, { code: 'MAX_ATTEMPTS_EXCEEDED', message: 'Maximum attempts exceeded' });
         }
 
-        if (otpRecord.otpNumber !== otp) {
+        // 0000 will be master otp - remove this after the notification is implemented
+        // Check for master OTP (0000) or actual OTP
+        if (otp !== '0000' && otpRecord.otpNumber !== otp) {
             otpRecord.attempts += 1;
             await otpRecord.save();
-            return resFailed(res, 400, 'Invalid OTP');
+            return resFailed(res, 400, { code: 'INVALID_OTP', message: 'Invalid OTP' });
         }
 
         // Mark OTP as used
@@ -139,7 +141,7 @@ async function verifyOTP(req: Request, res: Response): Promise<Response> {
         });
     } catch (error: any) {
         logger.error('verifyOTP', error.message);
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
@@ -151,16 +153,16 @@ async function refreshToken(req: Request, res: Response): Promise<Response> {
         const { refreshToken: oldRefreshToken } = req.body;
 
         // Verify refresh token and get payload
-        const decoded = verifyRefreshToken(oldRefreshToken) as any;
+        const decoded = (await verifyRefreshToken(oldRefreshToken)) as any;
 
         if (!decoded || !decoded.id) {
-            return resFailed(res, 401, 'Invalid refresh token');
+            return resFailed(res, 401, { code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token' });
         }
 
         const user = await UserModel.findById(decoded.id);
 
         if (!user) {
-            return resFailed(res, 404, 'User not found');
+            return resFailed(res, 404, { code: 'USER_NOT_FOUND', message: 'User not found' });
         }
 
         // Generate new tokens
@@ -175,7 +177,7 @@ async function refreshToken(req: Request, res: Response): Promise<Response> {
         });
     } catch (error: any) {
         logger.error('refreshToken', error.message);
-        return resFailed(res, 401, 'Invalid refresh token');
+        return resFailed(res, 401, { code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token' });
     }
 }
 
@@ -187,13 +189,13 @@ async function getProfile(req: IRequest, res: Response): Promise<Response> {
         const userId = req.user?.id;
 
         if (!userId) {
-            return resFailed(res, 401, 'Unauthorized');
+            return resFailed(res, 401, { code: 'UNAUTHORIZED', message: 'Unauthorized' });
         }
 
         const user = await UserModel.findById(userId, { __v: 0 });
 
         if (!user) {
-            return resFailed(res, 404, 'User not found');
+            return resFailed(res, 404, { code: 'USER_NOT_FOUND', message: 'User not found' });
         }
 
         return resSuccess(res, 200, 'Profile retrieved successfully', {
@@ -206,7 +208,7 @@ async function getProfile(req: IRequest, res: Response): Promise<Response> {
         });
     } catch (error: any) {
         logger.error('getProfile', error.message);
-        return resFailed(res, 500, 'Internal server error');
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 

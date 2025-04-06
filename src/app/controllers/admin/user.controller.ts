@@ -22,7 +22,10 @@ async function getAllUsers(_: Request, res: Response): Promise<Response> {
 
         if (!users.length) {
             const message: string = 'Users empty';
-            return resFailed(res, 200, message);
+            return resFailed(res, 200, {
+                code: 'USERS_EMPTY',
+                message,
+            });
         }
 
         const message: string = 'Success get all users';
@@ -46,14 +49,20 @@ async function getUserById(req: Request, res: Response): Promise<Response> {
 
         if (!user) {
             const message: string = 'User not found';
-            return resFailed(res, 404, message);
+            return resFailed(res, 404, {
+                code: 'USER_NOT_FOUND',
+                message,
+            });
         }
 
         const message: string = 'Success get user by id';
         return resSuccess(res, 200, message, { user });
     } catch (error: any) {
         logger.error(getUserById.name, error.message);
-        return resFailed(res, 500, error.message);
+        return resFailed(res, 500, {
+            code: 'GET_FAILED',
+            message: error.message,
+        });
     }
 }
 
@@ -70,7 +79,10 @@ async function createAdminUser(req: Request, res: Response): Promise<Response> {
         const existsUser = await UserService.getOneUser({ email });
         if (existsUser) {
             const message: string = 'Phone number or email already exists';
-            return resFailed(res, 400, message);
+            return resFailed(res, 400, {
+                code: 'DUPLICATE_DATA',
+                message,
+            });
         }
         const data = { name, email, isGuest, role };
         const user: User = await UserService.createUser(data);
@@ -79,7 +91,10 @@ async function createAdminUser(req: Request, res: Response): Promise<Response> {
         return resSuccess(res, 201, message, { user });
     } catch (error: any) {
         logger.error(createAdminUser.name, error.message);
-        return resFailed(res, 500, error.message);
+        return resFailed(res, 500, {
+            code: 'CREATE_FAILED',
+            message: error.message,
+        });
     }
 }
 
@@ -95,8 +110,10 @@ async function updateUserById(req: Request, res: Response): Promise<Response> {
         const isExistsUser: User | null = await UserService.getOneUserById(id);
 
         if (!isExistsUser) {
-            const message: string = 'User not found';
-            return resFailed(res, 404, message);
+            return resFailed(res, 404, {
+                code: 'USER_NOT_FOUND',
+                message: 'User not found',
+            });
         }
 
         const { name, phoneNumber, email, isGuest, role } = req.body;
@@ -112,7 +129,10 @@ async function updateUserById(req: Request, res: Response): Promise<Response> {
                 const existsUser = await UserService.getOneUser({ $or: query });
                 if (existsUser) {
                     const message: string = 'Phone number or email already exists';
-                    return resFailed(res, 400, message);
+                    return resFailed(res, 400, {
+                        code: 'DUPLICATE_DATA',
+                        message,
+                    });
                 }
             }
         }
@@ -122,7 +142,10 @@ async function updateUserById(req: Request, res: Response): Promise<Response> {
         return resSuccess(res, 200, message, { user });
     } catch (error: any) {
         logger.error(updateUserById.name, error.message);
-        return resFailed(res, 500, error.message);
+        return resFailed(res, 500, {
+            code: 'UPDATE_FAILED',
+            message: error.message,
+        });
     }
 }
 
@@ -139,7 +162,10 @@ async function deleteUserById(req: Request, res: Response): Promise<Response> {
 
         if (!isExistsUser) {
             const message: string = 'User not found';
-            return resFailed(res, 404, message);
+            return resFailed(res, 404, {
+                code: 'USER_NOT_FOUND',
+                message,
+            });
         }
 
         const data = { $pull: { sessions: [] } };
@@ -150,7 +176,10 @@ async function deleteUserById(req: Request, res: Response): Promise<Response> {
         return resSuccess(res, 200, message);
     } catch (error: any) {
         logger.error(deleteUserById.name, error.message);
-        return resFailed(res, 500, error.message);
+        return resFailed(res, 500, {
+            code: 'DELETE_FAILED',
+            message: error.message,
+        });
     }
 }
 

@@ -11,7 +11,9 @@ export const guestLoginSchema = z.object({
 export const sendOtpSchema = z.object({
     body: z.object({
         phone: z
-            .string()
+            .string({
+                required_error: 'Phone number is required',
+            })
             .min(10, 'Phone number must be at least 10 digits')
             .max(15, 'Phone number must not exceed 15 digits')
             .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number format'),
@@ -26,13 +28,15 @@ export const verifyOtpSchema = z.object({
             .min(10, 'Phone number must be at least 10 digits')
             .max(15, 'Phone number must not exceed 15 digits')
             .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number format'),
-        otp: z.string().length(6, 'OTP must be 6 digits').regex(/^\d+$/, 'OTP must contain only numbers'),
+        otp: z.string().length(4, 'OTP must be 4 digits').regex(/^\d+$/, 'OTP must contain only numbers'),
     }),
 });
 
 // Refresh token validation schema
 export const refreshTokenSchema = z.object({
     body: z.object({
-        refreshToken: z.string().min(1, 'Refresh token is required'),
+        refreshToken: z.string({
+            required_error: 'Refresh token is required',
+        }),
     }),
 });
