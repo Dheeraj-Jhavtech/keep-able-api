@@ -6,7 +6,6 @@
 
 import { Request, Response } from 'express';
 import { logger } from '../../../logger';
-import { hash } from '../../helpers/hash.helper';
 import { resFailed, resSuccess } from '../../helpers/response.helper';
 import { User } from '../../models/user.model';
 import UserService from '../../services/user.service';
@@ -64,31 +63,22 @@ async function getUserById(req: Request, res: Response): Promise<Response> {
  * @param {Response} res - Express Response object
  * @returns {Promise<Response>} - Promise object of Express Response
  */
-async function createUser(req: Request, res: Response): Promise<Response> {
+async function createAdminUser(req: Request, res: Response): Promise<Response> {
     try {
-        const { name, phoneNumber, email, password, isGuest = false, role = 'user' } = req.body;
+        const { name, email, isGuest = false, role = 'admin' } = req.body;
 
-        // Check for duplicate email/phone only if they are provided
-        const query = [];
-        if (phoneNumber) query.push({ phoneNumber });
-        if (email) query.push({ email });
-
-        if (query.length > 0) {
-            const existsUser = await UserService.getOneUser({ $or: query });
-            if (existsUser) {
-                const message: string = 'Phone number or email already exists';
-                return resFailed(res, 400, message);
-            }
+        const existsUser = await UserService.getOneUser({ email });
+        if (existsUser) {
+            const message: string = 'Phone number or email already exists';
+            return resFailed(res, 400, message);
         }
-
-        const passwordHash = await hash(password);
-        const data = { name, phoneNumber, email, password: passwordHash, isGuest, role };
+        const data = { name, email, isGuest, role };
         const user: User = await UserService.createUser(data);
 
         const message: string = 'Success create new user';
         return resSuccess(res, 201, message, { user });
     } catch (error: any) {
-        logger.error(createUser.name, error.message);
+        logger.error(createAdminUser.name, error.message);
         return resFailed(res, 500, error.message);
     }
 }
@@ -164,4 +154,4 @@ async function deleteUserById(req: Request, res: Response): Promise<Response> {
     }
 }
 
-export default { getAllUsers, getUserById, createUser, updateUserById, deleteUserById };
+export default { getAllUsers, getUserById, createUser: createAdminUser, updateUserById, deleteUserById };

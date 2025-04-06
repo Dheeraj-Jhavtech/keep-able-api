@@ -16,7 +16,6 @@ import isAdmin from './app/middlewares/is-admin.middleware';
 import { corsConfig, limitterConfig } from './config/app';
 import database from './config/database';
 import userRoute from './routes/admin/user.route';
-import authRoute from './routes/auth.route';
 import healthCheckRoute from './routes/health-check.route';
 import mainRoute from './routes/main.route';
 
@@ -44,9 +43,6 @@ const init = function (): Application {
 
     // * Health Check Route
     app.use('/api/health-check', healthCheckRoute);
-
-    // * Auth Route
-    app.use('/api/auth', authRoute);
 
     // * Admin Route
     app.use('/api/admin/users', auth, isAdmin, userRoute);
