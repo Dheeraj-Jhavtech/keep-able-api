@@ -1,226 +1,221 @@
 /**
- * @description This file contain all functions for control request and response from authentication endpoints api
- * @description It will handle all request and response from authentication endpoints api to services
- * @author {Deo Sbrn}
+ * @description This file contains all functions for handling authentication requests
  */
 
 import { Request, Response } from 'express';
-import mongoose from 'mongoose';
+import { UserModel } from '../models';
+import { OTP } from '../models/otp.model';
+import { User } from '../models/user.model';
 import { generateAccessToken } from '../../jwt/helpers/access-token.helper';
 import { generateRefreshToken, verifyRefreshToken } from '../../jwt/helpers/refresh-token.helper';
-import { generateSessionToken, getSessionId, verifySessionToken } from '../../jwt/helpers/session-token.helper';
-import { compare, hash } from '../helpers';
-import { resFailed, resSuccess } from '../helpers';
-import { User } from '../models/user.model';
-import SessionService from '../services/session.service';
-import UserService from '../services/user.service';
-import { logger } from '../../logger';
+import { resSuccess, resFailed } from '../helpers/response.helper';
+import { getModelForClass } from '@typegoose/typegoose';
+import { logger } from '../../logger/index';
+import IRequest from '../../interfaces/i-request';
+
+const OTPModel = getModelForClass(OTP);
 
 /**
- * @description Register new user
- * @param {Request} req - Express Request object
- * @param {Response} res - Express Response object
- * @returns {Promise<Response>} - Promise object of Express Response
+ * @description Handle guest login using device ID
  */
-async function register(req: Request, res: Response): Promise<Response> {
+async function guestLogin(req: Request, res: Response): Promise<Response> {
     try {
-        const { name, phoneNumber, email, password } = req.body;
-        const user: User | null = await UserService.getOneUser({ email });
+        const { deviceId } = req.body;
 
-        if (user) {
-            const message = 'Email already registered';
-            return resFailed(res, 400, message);
-        }
-
-        const hashPassword = await hash(password);
-        const data = { name, phoneNumber, email, password: hashPassword };
-        const newUser: User = await UserService.createUser(data);
-        const getNewUserWithoutPassword: User | null = await UserService.getOneUser({ email: newUser.email });
-
-        const message = 'Register success';
-        return resSuccess(res, 201, message, { user: getNewUserWithoutPassword });
-    } catch (error: any) {
-        logger.error(register.name, error.message);
-        return resFailed(res, 500, error.message);
-    }
-}
-
-/**
- * @description Login user
- * @param {Request} req - Express Request object
- * @param {Response} res - Express Response object
- * @returns {Promise<Response>} - Promise object of Express Response
- */
-async function login(req: Request, res: Response): Promise<Response> {
-    try {
-        const { loginType, password } = req.body;
-        const filter: mongoose.FilterQuery<User> = { $or: [{ email: loginType }, { phoneNumber: loginType }] };
-        const user: User | null = await UserService.getOneUser(filter, {}, false);
+        // Find or create guest user
+        let user = await UserModel.findOne({ deviceId, isGuest: true });
 
         if (!user) {
-            const message = 'User not found';
-            return resFailed(res, 404, message);
+            user = await UserModel.create({
+                name: `Guest-${deviceId.slice(0, 8)}`,
+                deviceId,
+                isGuest: true,
+                role: 'guest',
+            });
         }
 
-        const isPasswordMatch = await compare(password, user.password);
+        // Generate tokens
+        const payload = { id: user._id, role: user.role };
+        const token = generateAccessToken(payload, '1h');
+        const refreshToken = generateRefreshToken(payload, '7d');
 
-        if (!isPasswordMatch) {
-            const message = 'Password is incorrect';
-            return resFailed(res, 400, message);
-        }
-
-        const JWTPayload = { id: user._id, email: user.email, role: user.role };
-        const accessToken = generateAccessToken(JWTPayload, '5h');
-        const refreshToken = generateRefreshToken(JWTPayload, '5d');
-
-        const date = new Date();
-        const sessionObj = { refreshToken, userId: user._id, expiresAt: date.setDate(date.getDate() + 5) };
-        const newSession = await SessionService.createSession(sessionObj);
-
-        await UserService.updateOneUserById(user._id, { $push: { sessions: newSession } });
-
-        const encryptSessionId = generateSessionToken({ sessionId: newSession._id.toString() }, '5d');
-
-        res.cookie('session-backend', encryptSessionId, {
-            httpOnly: true,
-            maxAge: 5 * 24 * 60 * 60 * 1000,
+        return resSuccess(res, 200, 'Guest login successful', {
+            token,
+            refreshToken,
+            expiresIn: 3600, // 1 hour in seconds
         });
-
-        const message = 'Login success';
-        return resSuccess(res, 200, message, { accessToken, refreshToken });
     } catch (error: any) {
-        logger.error(login.name, error.message);
-        return resFailed(res, 500, error.message);
+        logger.error('guestLogin', error.message);
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
 /**
- * @description Refresh access token
- * @param {Request} req - Express Request object
- * @param {Response} res - Express Response object
- * @returns {Promise<Response>} - Promise object of Express Response
+ * @description Send OTP to user's phone number
+ */
+async function sendOTP(req: Request, res: Response): Promise<Response> {
+    try {
+        const { phone } = req.body;
+
+        // Find or create user
+        let user = await UserModel.findOne({ phoneNumber: phone });
+
+        if (!user) {
+            user = await UserModel.create({
+                name: `User-${phone.slice(-4)}`,
+                phoneNumber: phone,
+                isGuest: false,
+                role: 'user',
+            });
+        }
+
+        // Generate 4-digit OTP
+        const otpNumber = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Save OTP
+        await OTPModel.create({
+            userId: user._id,
+            otpNumber,
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes expiry
+            isUsed: false,
+            attempts: 0,
+        });
+
+        // TODO: Integrate with actual SMS service
+        // For now, just return success response
+        return resSuccess(res, 200, 'OTP sent successfully');
+    } catch (error: any) {
+        logger.error('sendOTP', error.message);
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    }
+}
+
+/**
+ * @description Verify OTP and generate tokens
+ */
+async function verifyOTP(req: Request, res: Response): Promise<Response> {
+    try {
+        const { phone, otp } = req.body;
+
+        const user = await UserModel.findOne({ phoneNumber: phone });
+
+        if (!user) {
+            return resFailed(res, 404, { code: 'USER_NOT_FOUND', message: 'User not found' });
+        }
+
+        const otpRecord = await OTPModel.findOne({
+            userId: user._id,
+            isUsed: false,
+            expiresAt: { $gt: new Date() },
+        }).sort({ createdAt: -1 });
+
+        if (!otpRecord) {
+            return resFailed(res, 400, { code: 'OTP_EXPIRED', message: 'OTP expired or not found' });
+        }
+
+        if (otpRecord.attempts >= 3) {
+            return resFailed(res, 400, { code: 'MAX_ATTEMPTS_EXCEEDED', message: 'Maximum attempts exceeded' });
+        }
+
+        // 0000 will be master otp - remove this after the notification is implemented
+        // Check for master OTP (0000) or actual OTP
+        if (otp !== '0000' && otpRecord.otpNumber !== otp) {
+            otpRecord.attempts += 1;
+            await otpRecord.save();
+            return resFailed(res, 400, { code: 'INVALID_OTP', message: 'Invalid OTP' });
+        }
+
+        // Mark OTP as used
+        otpRecord.isUsed = true;
+        await otpRecord.save();
+
+        // Generate tokens
+        const payload = { id: user._id, role: user.role };
+        const token = generateAccessToken(payload, '1h');
+        const refreshToken = generateRefreshToken(payload, '7d');
+
+        return resSuccess(res, 200, 'OTP verified successfully', {
+            token,
+            refreshToken,
+            expiresIn: 3600, // 1 hour in seconds
+        });
+    } catch (error: any) {
+        logger.error('verifyOTP', error.message);
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+    }
+}
+
+/**
+ * @description Refresh access token using refresh token
  */
 async function refreshToken(req: Request, res: Response): Promise<Response> {
     try {
-        const tokenSessionId = req.cookies['session-backend'];
+        const { refreshToken: oldRefreshToken } = req.body;
 
-        if (!tokenSessionId) {
-            const message = 'Session not found';
-            return resFailed(res, 404, message);
+        // Verify refresh token and get payload
+        const decoded = (await verifyRefreshToken(oldRefreshToken)) as any;
+
+        if (!decoded || !decoded.id) {
+            return resFailed(res, 401, { code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token' });
         }
 
-        const sessionId = getSessionId(tokenSessionId);
-
-        const existsSession = await SessionService.getOneSessionById(sessionId as string);
-
-        if (!existsSession) {
-            const message = 'Session not found';
-            return resFailed(res, 404, message);
-        }
-
-        try {
-            await verifySessionToken(tokenSessionId);
-        } catch (error: any) {
-            res.clearCookie('session-backend');
-            SessionService.revokeSession(existsSession?._id as mongoose.Types.ObjectId);
-
-            const message = 'Session not valid, please login again';
-            return resFailed(res, 403, message);
-        }
-
-        try {
-            await verifyRefreshToken(existsSession.refreshToken as string);
-        } catch (error: any) {
-            res.clearCookie('session-backend');
-            SessionService.revokeSession(existsSession._id as mongoose.Types.ObjectId);
-
-            const message = 'Your session is expired';
-            return resFailed(res, 403, message);
-        }
-
-        const user: User | null = await UserService.getOneUser({ _id: existsSession.userId });
+        const user = await UserModel.findById(decoded.id);
 
         if (!user) {
-            const message = 'User not found';
-            return resFailed(res, 404, message);
+            return resFailed(res, 404, { code: 'USER_NOT_FOUND', message: 'User not found' });
         }
 
-        const JWTPayload = { id: user._id, email: user.email, role: user.role };
-        const accessToken = generateAccessToken(JWTPayload, '5h');
-        const refreshToken = generateRefreshToken(JWTPayload, '5d');
+        // Generate new tokens
+        const payload = { id: user._id, role: user.role };
+        const token = generateAccessToken(payload, '1h');
+        const refreshToken = generateRefreshToken(payload, '7d');
 
-        const newSession = await SessionService.updateOneSessionById(existsSession._id, { refreshToken });
-        const encryptSessionId = generateSessionToken({ sessionId: newSession?._id.toString() }, '5d');
-
-        res.clearCookie('session-backend');
-        res.cookie('session-backend', encryptSessionId, {
-            httpOnly: true,
-            maxAge: 5 * 24 * 60 * 60 * 1000,
+        return resSuccess(res, 200, 'Tokens refreshed successfully', {
+            token,
+            refreshToken,
+            expiresIn: 3600, // 1 hour in seconds
         });
-
-        const message = 'Refresh the token success';
-        return resSuccess(res, 200, message, { accessToken, refreshToken });
     } catch (error: any) {
-        logger.error(refreshToken.name, error.message);
-        return resFailed(res, 500, error.message);
+        logger.error('refreshToken', error.message);
+        return resFailed(res, 401, { code: 'INVALID_REFRESH_TOKEN', message: 'Invalid refresh token' });
     }
 }
 
 /**
- * @description Logout user
- * @param {Request} req - Express Request object
- * @param {Response} res - Express Response object
- * @returns {Promise<Response>} - Promise object of Express Response
+ * @description Get user profile
  */
-async function logout(req: Request, res: Response): Promise<Response> {
+async function getProfile(req: IRequest, res: Response): Promise<Response> {
     try {
-        const tokenSessionId = req.cookies['session-backend'];
+        const userId = req.user?.id;
 
-        if (!tokenSessionId) {
-            const message = 'Session not found';
-            return resFailed(res, 404, message);
+        if (!userId) {
+            return resFailed(res, 401, { code: 'UNAUTHORIZED', message: 'Unauthorized' });
         }
 
-        try {
-            await verifySessionToken(tokenSessionId);
-        } catch (error: any) {
-            const message = 'Session not valid';
-            return resFailed(res, 403, message);
-        }
-
-        const sessionId = getSessionId(tokenSessionId);
-        const existsSession = await SessionService.getOneSessionById(sessionId as string);
-
-        if (!existsSession) {
-            const message = 'Session not found';
-            return resFailed(res, 404, message);
-        }
-
-        try {
-            await verifyRefreshToken(existsSession.refreshToken as string);
-        } catch (error: any) {
-            const message = 'Refresh token not valid';
-            return resFailed(res, 403, message);
-        }
-
-        const user: User | null = await UserService.getOneUser({ _id: existsSession.userId });
+        const user = await UserModel.findById(userId, { __v: 0 });
 
         if (!user) {
-            const message = 'User not found';
-            return resFailed(res, 404, message);
+            return resFailed(res, 404, { code: 'USER_NOT_FOUND', message: 'User not found' });
         }
 
-        await UserService.updateOneUserById(user._id, { $pull: { sessions: existsSession._id } });
-        await SessionService.deleteOneSessionById(existsSession._id);
-
-        res.clearCookie('session-backend');
-
-        const message = 'Logout success';
-        return resSuccess(res, 200, message);
+        return resSuccess(res, 200, 'Profile retrieved successfully', {
+            id: user._id,
+            name: user.name,
+            phone: user.phoneNumber,
+            email: user.email,
+            role: user.role,
+            isGuest: user.isGuest,
+        });
     } catch (error: any) {
-        logger.error(logout.name, error.message);
-        return resFailed(res, 500, error.message);
+        logger.error('getProfile', error.message);
+        return resFailed(res, 500, { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
     }
 }
 
-export default { register, login, refreshToken, logout };
+export default {
+    guestLogin,
+    sendOTP,
+    verifyOTP,
+    refreshToken,
+    getProfile,
+};

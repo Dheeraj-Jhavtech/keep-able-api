@@ -27,7 +27,7 @@ router.get('/:id', UserController.getUserById);
  * @access private
  * @endpoint /api/admin/users
  */
-router.post('/', UserController.createUser);
+router.post('/', UserController.createAdminUser);
 
 /**
  * @method PUT

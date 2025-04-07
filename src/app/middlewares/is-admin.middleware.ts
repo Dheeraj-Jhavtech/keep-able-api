@@ -20,5 +20,8 @@ export default async function isAdmin(req: IRequest, res: Response, next: NextFu
         return;
     }
 
-    return resFailed(res, 403, 'Forbidden');
+    return resFailed(res, 403, {
+        code: 'FORBIDDEN',
+        message: 'Forbidden',
+    });
 }

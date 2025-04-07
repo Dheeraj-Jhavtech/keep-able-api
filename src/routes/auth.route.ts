@@ -1,39 +1,48 @@
 /**
- * @description This file contain all routes for authentication endpoints
- * @author {Deo Sbrn}
+ * @description This file contains all routes for authentication endpoints
  */
 
-import express, { Router } from 'express';
+import { Router } from 'express';
 import AuthController from '../app/controllers/auth.controller';
+import auth from '../app/middlewares/auth.middleware';
+import validateReq from '../app/middlewares/validateReq';
+import { guestLoginSchema, sendOtpSchema, verifyOtpSchema, refreshTokenSchema } from '../app/validations/auth.validation';
 
-const router: Router = express.Router();
+const router = Router();
 
 /**
+ * @endpoint /api/v1/auth/guest-login
  * @method POST
- * @access public
- * @endpoint /api/auth/login
+ * @access Public
  */
-router.post('/login', AuthController.login);
+router.post('/guest-login', validateReq(guestLoginSchema), AuthController.guestLogin);
 
 /**
+ * @endpoint /api/v1/auth/send-otp
  * @method POST
- * @access public
- * @endpoint /api/auth/register
+ * @access Public
  */
-router.post('/register', AuthController.register);
+router.post('/send-otp', validateReq(sendOtpSchema), AuthController.sendOTP);
 
 /**
+ * @endpoint /api/v1/auth/verify-otp
  * @method POST
- * @access public
- * @endpoint /api/auth/logout
+ * @access Public
  */
-router.delete('/logout', AuthController.logout);
+router.post('/verify-otp', validateReq(verifyOtpSchema), AuthController.verifyOTP);
 
 /**
+ * @endpoint /api/v1/auth/refresh-token
+ * @method POST
+ * @access Public
+ */
+router.post('/refresh-token', validateReq(refreshTokenSchema), AuthController.refreshToken);
+
+/**
+ * @endpoint /api/v1/profile
  * @method GET
- * @access public
- * @endpoint /api/auth/refresh-token
+ * @access Private
  */
-router.get('/refresh-token', AuthController.refreshToken);
+router.get('/profile', auth, AuthController.getProfile);
 
 export default router;

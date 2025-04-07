@@ -21,6 +21,7 @@
         "docker:down": "docker compose down",
         "build": "rm -rf ./dist && tsc -p .",
         "lint": "eslint src/**/*.ts",
+        "lint:version": "eslint --version",
         "lint:fix": "eslint src/**/*.ts --fix",
         "prettier:check": "prettier . --check",
         "prettier:fix": "prettier . --write",
@@ -43,6 +44,8 @@
     "author": "Deo Subarno",
     "license": "Apache-2.0",
     "devDependencies": {
+        "@eslint/eslintrc": "^3.3.1",
+        "@eslint/js": "^9.24.0",
         "@types/bcrypt": "^5.0.2",
         "@types/cli-color": "^2.0.6",
         "@types/cookie-parser": "^1.4.7",
@@ -81,7 +84,8 @@
         "mongoose": "^8.4.4",
         "morgan": "^1.10.0",
         "npmlog": "^7.0.1",
-        "socket.io": "^4.7.5"
+        "socket.io": "^4.7.5",
+        "zod": "^3.24.2"
     },
     "lint-staged": {
         "**/*.{js,jsx,ts,tsx,css,md,html}": [

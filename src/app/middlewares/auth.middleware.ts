@@ -21,7 +21,7 @@ export default async function auth(req: IRequest, res: Response, next: NextFunct
         const authHeader = req.headers.authorization;
         const token = authHeader && authHeader.split(' ')[1];
 
-        if (!token) return resFailed(res, 401, 'Token invalid');
+        if (!token) return resFailed(res, 401, { code: 'INVALID_TOKEN', message: 'Token invalid' });
 
         try {
             await verifyAccessToken(token);
@@ -32,10 +32,10 @@ export default async function auth(req: IRequest, res: Response, next: NextFunct
             return;
         } catch (error: any) {
             logger.error(auth.name, error.message);
-            return resFailed(res, 401, 'Token invalid');
+            return resFailed(res, 401, { code: 'INVALID_TOKEN', message: 'Token invalid' });
         }
     } catch (error: any) {
         logger.error(auth.name, error.message);
-        return resFailed(res, 401, 'Unauthorized');
+        return resFailed(res, 401, { code: 'UNAUTHORIZED', message: 'Unauthorized' });
     }
 }
