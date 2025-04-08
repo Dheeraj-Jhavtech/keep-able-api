@@ -1,7 +1,5 @@
 /**
- * @description This file contain all functions for control request and response from user endpoints api
- * @description It will handle all request and response from user endpoints api to services
- * @author {Deo Sbrn}
+ * @description Admin user management controller for handling CRUD operations
  */
 
 import { Request, Response } from 'express';
@@ -9,6 +7,7 @@ import { logger } from '../../../logger';
 import { resFailed, resSuccess } from '../../helpers/response.helper';
 import { User } from '../../models/user.model';
 import UserService from '../../services/user.service';
+import IRequest from '../../../interfaces/i-request';
 
 /**
  * @description Get all users
@@ -16,51 +15,24 @@ import UserService from '../../services/user.service';
  * @param {Response} res - Express Response object
  * @returns {Promise<Response>} - Promise object of Express Response
  */
-async function getAllUsers(_: Request, res: Response): Promise<Response> {
+async function getAllAdminUsers(_: Request, res: Response): Promise<Response> {
     try {
-        const users: User[] = await UserService.getAllUsers();
+        const adminUsers: User[] = await UserService.getAllUsers({ role: 'admin' });
 
-        if (!users.length) {
-            const message: string = 'Users empty';
+        if (!adminUsers.length) {
+            const message: string = 'Admin users empty';
             return resFailed(res, 200, {
-                code: 'USERS_EMPTY',
+                code: 'ADMIN_USERS_EMPTY',
                 message,
             });
         }
 
-        const message: string = 'Success get all users';
-        return resSuccess(res, 200, message, { users });
+        const message: string = 'Success get all admin users';
+        return resSuccess(res, 200, message, { users: adminUsers });
     } catch (error: any) {
-        logger.error(getAllUsers.name, error.message);
-        return resFailed(res, 500, error.message);
-    }
-}
-
-/**
- * @description Get user by id
- * @param {Request} req - Express Request object
- * @param {Response} res - Express Response object
- * @returns {Promise<Response>} - Promise object of Express Response
- */
-async function getUserById(req: Request, res: Response): Promise<Response> {
-    try {
-        const { id } = req.params;
-        const user: User | null = await UserService.getOneUserById(id);
-
-        if (!user) {
-            const message: string = 'User not found';
-            return resFailed(res, 404, {
-                code: 'USER_NOT_FOUND',
-                message,
-            });
-        }
-
-        const message: string = 'Success get user by id';
-        return resSuccess(res, 200, message, { user });
-    } catch (error: any) {
-        logger.error(getUserById.name, error.message);
+        logger.error(getAllAdminUsers.name, error.message);
         return resFailed(res, 500, {
-            code: 'GET_FAILED',
+            code: 'LIST_FAILED',
             message: error.message,
         });
     }
@@ -72,25 +44,29 @@ async function getUserById(req: Request, res: Response): Promise<Response> {
  * @param {Response} res - Express Response object
  * @returns {Promise<Response>} - Promise object of Express Response
  */
-async function createAdminUser(req: Request, res: Response): Promise<Response> {
+async function create(req: Request, res: Response): Promise<Response> {
     try {
-        const { name, email, isGuest = false, role = 'admin' } = req.body;
+        const { name, email, role, isGuest } = req.body;
 
         const existsUser = await UserService.getOneUser({ email });
         if (existsUser) {
-            const message: string = 'Phone number or email already exists';
             return resFailed(res, 400, {
-                code: 'DUPLICATE_DATA',
-                message,
+                code: 'DUPLICATE_EMAIL',
+                message: 'Email already exists',
             });
         }
-        const data = { name, email, isGuest, role };
-        const user: User = await UserService.createUser(data);
+
+        const user: User = await UserService.createUser({ name, email, role, isGuest });
 
         const message: string = 'Success create new user';
-        return resSuccess(res, 201, message, { user });
+        return resSuccess(res, 201, message, {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+        });
     } catch (error: any) {
-        logger.error(createAdminUser.name, error.message);
+        logger.error(create.name, error.message);
         return resFailed(res, 500, {
             code: 'CREATE_FAILED',
             message: error.message,
@@ -104,7 +80,7 @@ async function createAdminUser(req: Request, res: Response): Promise<Response> {
  * @param {Response} res - Express Response object
  * @returns {Promise<Response>} - Promise object of Express Response
  */
-async function updateUserById(req: Request, res: Response): Promise<Response> {
+async function update(req: IRequest, res: Response): Promise<Response> {
     try {
         const { id } = req.params;
         const isExistsUser: User | null = await UserService.getOneUserById(id);
@@ -116,32 +92,38 @@ async function updateUserById(req: Request, res: Response): Promise<Response> {
             });
         }
 
-        const { name, phoneNumber, email, isGuest, role } = req.body;
-        const data = { name, phoneNumber, email, isGuest, role };
+        // Prevent super admin from being demoted
+        if (isExistsUser.role === 'super_admin' && req.user?.role !== 'super_admin') {
+            return resFailed(res, 403, {
+                code: 'FORBIDDEN',
+                message: 'Cannot modify super admin user',
+            });
+        }
 
-        // Check for duplicate email/phone if they are being updated
-        if (phoneNumber || email) {
-            const query = [];
-            if (phoneNumber) query.push({ phoneNumber, _id: { $ne: id } });
-            if (email) query.push({ email, _id: { $ne: id } });
+        const { name, email, role, isGuest } = req.body;
 
-            if (query.length > 0) {
-                const existsUser = await UserService.getOneUser({ $or: query });
-                if (existsUser) {
-                    const message: string = 'Phone number or email already exists';
-                    return resFailed(res, 400, {
-                        code: 'DUPLICATE_DATA',
-                        message,
-                    });
-                }
+        // Check for duplicate email if it's being updated
+        if (email && email !== isExistsUser.email) {
+            const existsUser = await UserService.getOneUser({ email, _id: { $ne: id } });
+            if (existsUser) {
+                return resFailed(res, 400, {
+                    code: 'DUPLICATE_EMAIL',
+                    message: 'Email already exists',
+                });
             }
         }
-        const user: User | null = await UserService.updateOneUserById(id, data);
+
+        const user: User | null = await UserService.updateOneUserById(id, { name, email, role, isGuest });
 
         const message: string = 'Success update user by id';
-        return resSuccess(res, 200, message, { user });
+        return resSuccess(res, 200, message, {
+            id: user?._id,
+            name: user?.name,
+            email: user?.email,
+            role: user?.role,
+        });
     } catch (error: any) {
-        logger.error(updateUserById.name, error.message);
+        logger.error(update.name, error.message);
         return resFailed(res, 500, {
             code: 'UPDATE_FAILED',
             message: error.message,
@@ -155,7 +137,7 @@ async function updateUserById(req: Request, res: Response): Promise<Response> {
  * @param {Response} res - Express Response object
  * @returns {Promise<Response>} - Promise object of Express Response
  */
-async function deleteUserById(req: Request, res: Response): Promise<Response> {
+async function remove(req: IRequest, res: Response): Promise<Response> {
     try {
         const { id } = req.params;
         const isExistsUser: User | null = await UserService.getOneUserById(id);
@@ -168,14 +150,28 @@ async function deleteUserById(req: Request, res: Response): Promise<Response> {
             });
         }
 
-        const data = { $pull: { sessions: [] } };
-        await UserService.updateOneUserById(id, data);
+        // Prevent super admin from being deleted
+        if (isExistsUser.role === 'super_admin') {
+            return resFailed(res, 403, {
+                code: 'FORBIDDEN',
+                message: 'Cannot delete super admin user',
+            });
+        }
+
+        // Prevent users from deleting themselves
+        if (req.user?.id === id) {
+            return resFailed(res, 403, {
+                code: 'FORBIDDEN',
+                message: 'Cannot delete your own account',
+            });
+        }
+
         await UserService.deleteOneUserById(id);
 
         const message: string = 'Success delete user by id';
         return resSuccess(res, 200, message);
     } catch (error: any) {
-        logger.error(deleteUserById.name, error.message);
+        logger.error(remove.name, error.message);
         return resFailed(res, 500, {
             code: 'DELETE_FAILED',
             message: error.message,
@@ -183,4 +179,4 @@ async function deleteUserById(req: Request, res: Response): Promise<Response> {
     }
 }
 
-export default { getAllUsers, getUserById, createAdminUser, updateUserById, deleteUserById };
+export default { list: getAllAdminUsers, create, update, remove };

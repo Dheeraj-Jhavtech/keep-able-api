@@ -14,8 +14,8 @@ import { resFailed } from '../helpers/response.helper';
  * @param {NextFunction} next - Next express function
  * @returns {Promise<void | Response>} - Promise object of void or Response
  */
-export default async function isAdmin(req: IRequest, res: Response, next: NextFunction): Promise<void | Response> {
-    if (req.user?.role.toLowerCase() === 'admin' || req.user?.role.toLowerCase() === 'super_admin') {
+export default async function isSuperAdmin(req: IRequest, res: Response, next: NextFunction): Promise<void | Response> {
+    if (req.user?.role.toLowerCase() === 'super_admin') {
         next();
         return;
     }
