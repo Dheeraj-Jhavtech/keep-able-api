@@ -11,14 +11,12 @@ import express, { Application } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import morgan from 'morgan';
 import { resFailed } from './app/helpers/response.helper';
-import auth from './app/middlewares/auth.middleware';
-import isAdmin from './app/middlewares/is-admin.middleware';
 import { corsConfig, limitterConfig } from './config/app';
 import database from './config/database';
-import userRoute from './routes/admin/user.route';
 import mainRoute from './routes/main.route';
 import healthCheckRoute from './routes/health-check.route';
 import authRoute from './routes/auth.route';
+import adminRoute from './routes/admin/index';
 
 /**
  * @description Init express application
@@ -41,7 +39,7 @@ const init = function (): Application {
 
     // * Main Route
     app.use('/api/v1/auth', authRoute);
-    app.use('/api/admin/users', auth, isAdmin, userRoute);
+    app.use('/api/v1/admin', adminRoute);
     app.use('/api', mainRoute);
     app.use('/health-check', healthCheckRoute);
 

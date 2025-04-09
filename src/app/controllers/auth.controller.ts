@@ -5,7 +5,6 @@
 import { Request, Response } from 'express';
 import { UserModel } from '../models';
 import { OTP } from '../models/otp.model';
-import { User } from '../models/user.model';
 import { generateAccessToken } from '../../jwt/helpers/access-token.helper';
 import { generateRefreshToken, verifyRefreshToken } from '../../jwt/helpers/refresh-token.helper';
 import { resSuccess, resFailed } from '../helpers/response.helper';
