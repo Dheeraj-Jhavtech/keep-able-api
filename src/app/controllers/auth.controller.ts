@@ -109,11 +109,11 @@ async function verifyOTP(req: Request, res: Response): Promise<Response> {
         }).sort({ createdAt: -1 });
 
         if (!otpRecord) {
-            return resFailed(res, 400, { code: 'OTP_EXPIRED', message: 'OTP expired or not found' });
+            return resFailed(res, 200, { code: 'OTP_EXPIRED', message: 'OTP expired or not found' });
         }
 
         if (otpRecord.attempts >= 3) {
-            return resFailed(res, 400, { code: 'MAX_ATTEMPTS_EXCEEDED', message: 'Maximum attempts exceeded' });
+            return resFailed(res, 200, { code: 'MAX_ATTEMPTS_EXCEEDED', message: 'Maximum attempts exceeded' });
         }
 
         // 0000 will be master otp - remove this after the notification is implemented
@@ -121,7 +121,7 @@ async function verifyOTP(req: Request, res: Response): Promise<Response> {
         if (otp !== '0000' && otpRecord.otpNumber !== otp) {
             otpRecord.attempts += 1;
             await otpRecord.save();
-            return resFailed(res, 400, { code: 'INVALID_OTP', message: 'Invalid OTP' });
+            return resFailed(res, 200, { code: 'INVALID_OTP', message: 'Invalid OTP' });
         }
 
         // Mark OTP as used
